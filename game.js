@@ -1,6 +1,6 @@
 // ================= GESTION DES ÉTATS ET STATS DE BASE =================
 const playerStats = {
-    coins: 100, // On commence avec 100 pièces pour tester la boutique !
+    coins: 100,
     currentBrawler: 'Shelly',
     unlockedBrawlers: ['Shelly'],
     upgrades: {
@@ -9,13 +9,11 @@ const playerStats = {
     }
 };
 
-// Configuration des brawlers (Vitesse de base, points de vie, dégâts)
 const brawlerConfig = {
-    Shelly: { speed: 4, hp: 100, damage: 20, color: '#FF9900' },
-    Colt: { speed: 6, hp: 80, damage: 15, color: '#4361EE' }
+    Shelly: { speed: 5, hp: 100, damage: 20, color: '#FF9900' },
+    Colt: { speed: 7, hp: 80, damage: 15, color: '#4361EE' }
 };
 
-// Variables du jeu en cours
 let gameInterval;
 let isPaused = false;
 let isPlaying = false;
@@ -35,11 +33,19 @@ const player = {
     isGrounded: false
 };
 
-// Définition des éléments HTML
+// Gestion de la Caméra
+const camera = {
+    x: 0,
+    targetX: 0
+};
+
+// Tableaux pour stocker les éléments du jeu
+let obstacles = [];
+let spawnTimer = 0;
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Ajuster le Canvas à la taille de l'écran
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -47,51 +53,36 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-// ================= GESTION DES MENUS ET INTERFACES =================
+// ================= GESTION DES MENUS =================
 function showScreen(screenId) {
     document.getElementById('main-menu').classList.add('hidden');
     document.getElementById('shop-menu').classList.add('hidden');
     document.getElementById('game-container').classList.add('hidden');
     document.getElementById('pause-menu').classList.add('hidden');
-
     document.getElementById(screenId).classList.remove('hidden');
 }
 
-// Liaisons des boutons du Menu
 document.getElementById('btn-start').addEventListener('click', startGame);
-document.getElementById('btn-shop').addEventListener('click', () => {
-    updateShopUI();
-    showScreen('shop-menu');
-});
+document.getElementById('btn-shop').addEventListener('click', () => { updateShopUI(); showScreen('shop-menu'); });
 document.getElementById('btn-close-shop').addEventListener('click', () => showScreen('main-menu'));
-
-// Système de Pause
 document.getElementById('btn-pause-trigger').addEventListener('click', togglePause);
 document.getElementById('btn-resume').addEventListener('click', togglePause);
 document.getElementById('btn-quit').addEventListener('click', quitGame);
 
 function togglePause() {
     isPaused = !isPaused;
-    if (isPaused) {
-        document.getElementById('pause-menu').classList.remove('hidden');
-    } else {
-        document.getElementById('pause-menu').classList.add('hidden');
-    }
+    if (isPaused) document.getElementById('pause-menu').classList.remove('hidden');
+    else document.getElementById('pause-menu').classList.add('hidden');
 }
 
-// Inverser la position des touches mobiles (Critère config)
 let invertedControls = false;
 document.getElementById('btn-config-layout').addEventListener('click', () => {
     invertedControls = !invertedControls;
     const controls = document.getElementById('mobile-controls');
-    if (invertedControls) {
-        controls.style.flexDirection = 'row-reverse';
-    } else {
-        controls.style.flexDirection = 'row';
-    }
+    controls.style.flexDirection = invertedControls ? 'row-reverse' : 'row';
 });
 
-// ================= SYSTÈME DE LA BOUTIQUE =================
+// ================= BOUTIQUE =================
 function updateShopUI() {
     document.getElementById('coin-count').innerText = playerStats.coins;
     document.getElementById('speed-lvl').innerText = playerStats.upgrades.speed;
@@ -100,45 +91,25 @@ function updateShopUI() {
 }
 
 document.getElementById('buy-speed').addEventListener('click', () => {
-    if (playerStats.coins >= 100) {
-        playerStats.coins -= 100;
-        playerStats.upgrades.speed++;
-        updateShopUI();
-    }
+    if (playerStats.coins >= 100) { playerStats.coins -= 100; playerStats.upgrades.speed++; updateShopUI(); }
 });
-
 document.getElementById('buy-dmg').addEventListener('click', () => {
-    if (playerStats.coins >= 150) {
-        playerStats.coins -= 150;
-        playerStats.upgrades.dmg++;
-        updateShopUI();
-    }
+    if (playerStats.coins >= 150) { playerStats.coins -= 150; playerStats.upgrades.dmg++; updateShopUI(); }
 });
-
 document.getElementById('unlock-colt').addEventListener('click', () => {
     if (!playerStats.unlockedBrawlers.includes('Colt') && playerStats.coins >= 500) {
-        playerStats.coins -= 500;
-        playerStats.unlockedBrawlers.push('Colt');
-        document.getElementById('current-brawler-display').innerText = 'Colt (Sélectionné)';
-        playerStats.currentBrawler = 'Colt';
-        updateShopUI();
+        playerStats.coins -= 500; playerStats.unlockedBrawlers.push('Colt');
+        playerStats.currentBrawler = 'Colt'; document.getElementById('current-brawler-display').innerText = 'Colt'; updateShopUI();
     } else if (playerStats.unlockedBrawlers.includes('Colt')) {
-        playerStats.currentBrawler = 'Colt';
-        document.getElementById('current-brawler-display').innerText = 'Colt';
-        showScreen('main-menu');
+        playerStats.currentBrawler = 'Colt'; document.getElementById('current-brawler-display').innerText = 'Colt'; showScreen('main-menu');
     }
 });
 
-// ================= GESTION DES ENTRÉES (PC & MOBILE) =================
-
-// Clavier PC
+// ================= ENTRÉES PC & MOBILE =================
 window.addEventListener('keydown', (e) => keys[e.code] = true);
 window.addEventListener('keyup', (e) => keys[e.code] = false);
-window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && isPlaying) togglePause();
-});
+window.addEventListener('keydown', (e) => { if (e.code === 'Escape' && isPlaying) togglePause(); });
 
-// Tactile Mobile
 function bindMobileBtn(id, keyCode) {
     const btn = document.getElementById(id);
     btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyCode] = true; });
@@ -147,9 +118,8 @@ function bindMobileBtn(id, keyCode) {
 bindMobileBtn('btn-m-left', 'ArrowLeft');
 bindMobileBtn('btn-m-right', 'ArrowRight');
 bindMobileBtn('btn-m-jump', 'Space');
-bindMobileBtn('btn-m-shoot', 'KeyF');
 
-// ================= BOUCLE DE JEU PRINCIPALE =================
+// ================= BOUCLE DE JEU =================
 function startGame() {
     isPlaying = true;
     isPaused = false;
@@ -158,48 +128,49 @@ function startGame() {
     player.x = 100;
     player.y = 300;
     player.vy = 0;
+    obstacles = [];
+    spawnTimer = 0;
+    camera.x = 0;
     
     showScreen('game-container');
     gameInterval = requestAnimationFrame(gameLoop);
 }
 
-function quitGame() {
-    isPlaying = false;
-    showScreen('main-menu');
-}
+function quitGame() { isPlaying = false; showScreen('main-menu'); }
 
 function gameLoop() {
     if (!isPlaying) return;
-
     if (!isPaused) {
         updatePhysics();
         drawGame();
     }
-
     gameInterval = requestAnimationFrame(gameLoop);
 }
 
 function updatePhysics() {
     const currentConfig = brawlerConfig[playerStats.currentBrawler];
-    // Vitesse boostée par les améliorations de la boutique
     const speedMultiplier = 1 + (playerStats.upgrades.speed - 1) * 0.1;
     const finalSpeed = currentConfig.speed * speedMultiplier;
 
-    // Déplacement Gauche / Droite (touches PC ou boutons mobiles)
-    if (keys['ArrowLeft'] || keys['KeyA']) player.x -= finalSpeed;
-    if (keys['ArrowRight'] || keys['KeyD']) player.x += finalSpeed;
+    // Déplacement et mise à jour du score basé sur la vraie distance parcourue
+    if (keys['ArrowLeft'] || keys['KeyA']) {
+        player.x -= finalSpeed;
+    }
+    if (keys['ArrowRight'] || keys['KeyD'] || true) { // Retirer "|| true" si tu ne veux pas que ça avance tout seul style Geometry Dash
+        player.x += finalSpeed;
+        score = Math.floor(player.x / 10); // Le score augmente proportionnellement à la distance !
+    }
 
-    // Saut (Espace ou Z)
+    // Saut
     if ((keys['Space'] || keys['KeyW'] || keys['ArrowUp']) && player.isGrounded) {
         player.vy = player.jumpForce;
         player.isGrounded = false;
     }
 
-    // Application de la gravité
+    // Gravité
     player.vy += player.gravity;
     player.y += player.vy;
 
-    // Sol virtuel temporaire pour éviter de tomber à l'infini
     const groundLevel = canvas.height - 150;
     if (player.y + player.height >= groundLevel) {
         player.y = groundLevel - player.height;
@@ -207,31 +178,97 @@ function updatePhysics() {
         player.isGrounded = true;
     }
 
-    // Bloquer le joueur dans les limites de l'écran
-    if (player.x < 0) player.x = 0;
-    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    // Centrer la caméra sur le joueur
+    camera.x = player.x - canvas.width / 2 + player.width / 2;
+    if (camera.x < 0) camera.x = 0; // Empêche la caméra de voir derrière le début de la map
 
-    // Augmenter le score passivement pour simuler l'avancée
-    score++;
-    
-    // Mettre à jour l'ATH
+    // --- GÉNÉRATEUR D'OBSTACLES ---
+    spawnTimer++;
+    if (spawnTimer > 120) { // Aléatoire ou fixe toutes les 2 secondes environ
+        let type = Math.random() > 0.5 ? 'spike' : 'box';
+        obstacles.push({
+            x: player.x + canvas.width, // Apparaît juste hors de l'écran à droite
+            y: type === 'spike' ? groundLevel - 40 : groundLevel - 50,
+            width: type === 'spike' ? 40 : 50,
+            height: type === 'spike' ? 40 : 50,
+            type: type
+        });
+        spawnTimer = 0;
+    }
+
+    // Gestion des collisions avec les obstacles
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        let obs = obstacles[i];
+
+        // Détection de collision AABB standard
+        if (player.x < obs.x + obs.width &&
+            player.x + player.width > obs.x &&
+            player.y < obs.y + obs.height &&
+            player.y + player.height > obs.y) {
+            
+            if (obs.type === 'spike') {
+                currentHp -= 20; // Les pics font mal !
+            } else {
+                currentHp -= 10; // Les caisses font moins mal
+            }
+            obstacles.splice(i, 1); // Détruit l'obstacle après impact
+            
+            if (currentHp <= 0) {
+                playerStats.coins += Math.floor(score / 5); // Gain de pièces à la mort !
+                alert(`Game Over ! Score: ${score}. Vous gagnez ${Math.floor(score / 5)} pièces !`);
+                quitGame();
+            }
+        }
+
+        // Nettoyer les obstacles dépassés pour ne pas faire ramer le jeu
+        if (obs.x < camera.x - 100) {
+            obstacles.splice(i, 1);
+        }
+    }
+
     document.getElementById('hud-score').innerText = score;
     document.getElementById('hud-hp').innerText = currentHp;
 }
 
 function drawGame() {
-    // Effacer l'écran précédent
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const groundLevel = canvas.height - 150;
 
-    // Dessiner le sol
+    // Dessiner le sol en prenant en compte le défilement de la caméra
     ctx.fillStyle = '#3c4e6b';
-    ctx.fillRect(0, canvas.height - 150, canvas.width, 150);
+    ctx.fillRect(0, groundLevel, canvas.width, 150);
+    
+    // Lignes sur le sol pour bien voir l'effet de mouvement
+    ctx.fillStyle = '#2b3a52';
+    for (let i = 0; i < canvas.width + 200; i += 100) {
+        let lineX = i - (camera.x % 100);
+        ctx.fillRect(lineX, groundLevel, 5, 150);
+    }
 
-    // Dessiner le Brawler (Représenté par un rectangle coloré)
+    // Dessiner les obstacles (en soustrayant camera.x pour les faire défiler)
+    obstacles.forEach(obs => {
+        if (obs.type === 'spike') {
+            ctx.fillStyle = '#ff3333'; // Pics rouges style Geometry Dash
+            ctx.beginPath();
+            ctx.moveTo(obs.x - camera.x, obs.y + obs.height);
+            ctx.lineTo(obs.x - camera.x + obs.width / 2, obs.y);
+            ctx.lineTo(obs.x - camera.x + obs.width, obs.y + obs.height);
+            ctx.closePath();
+            ctx.fill();
+        } else {
+            ctx.fillStyle = '#8B4513'; // Caisses en bois marron
+            ctx.fillRect(obs.x - camera.x, obs.y, obs.width, obs.height);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(obs.x - camera.x, obs.y, obs.width, obs.height);
+        }
+    });
+
+    // Dessiner le Brawler (sa position à l'écran dépend de sa position - camera.x)
     ctx.fillStyle = brawlerConfig[playerStats.currentBrawler].color;
-    ctx.fillRect(player.x, player.y, player.width, player.height);
+    ctx.fillRect(player.x - camera.x, player.y, player.width, player.height);
 
-    // Yeux ou détails simples pour lui donner vie
+    // Détail du visage selon la direction
     ctx.fillStyle = '#000';
-    ctx.fillRect(player.x + (keys['ArrowLeft'] ? 5 : 25), player.y + 10, 8, 8);
+    ctx.fillRect(player.x - camera.x + 25, player.y + 10, 8, 8);
 }
