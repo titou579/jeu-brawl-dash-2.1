@@ -7,9 +7,9 @@ const images = {
 };
 // Prise en compte de ta petite correction pour le double .png !
 images.shelly.src = 'shelly.png.png'; 
-images.edgard.src = 'edgard.png.png';
-images.melody.src = 'melody.png.png';
-images.pic.src = 'pic.png.png';
+images.edgard.src = 'edgard.png';
+images.melody.src = 'melody.png';
+images.pic.src = 'pic.png';
 
 // ================= STATS ET CONFIGURATION =================
 const playerStats = {
