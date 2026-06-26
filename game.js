@@ -5,10 +5,10 @@ const images = {
     melody: new Image(),
     pic: new Image()
 };
-images.shelly.src = 'shelly.png';
-images.edgard.src = 'edgard.png';
-images.melody.src = 'melody.png';
-images.pic.src = 'pic.png';
+images.shelly.src = 'shelly.png.png';
+images.edgard.src = 'edgard.png.png';
+images.melody.src = 'melody.png.png';
+images.pic.src = 'pic.png.png';
 
 // ================= STATS ET CONFIGURATION =================
 const playerStats = {
