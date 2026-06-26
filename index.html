@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brawl Dash 2D</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ================= MENU D'ACCUEIL ================= -->
+    <div id="main-menu" class="screen">
+        <h1>BRAWL DASH</h1>
+        
+        <div class="selection-container">
+            <!-- Choix du Brawler -->
+            <div class="select-box">
+                <h3>Brawler</h3>
+                <div id="current-brawler-display">Shelly</div>
+                <button id="btn-shop">Boutique / Améliorer</button>
+            </div>
+
+            <!-- Choix de la Map -->
+            <div class="select-box">
+                <h3>Map</h3>
+                <select id="map-select">
+                    <option value="desert">Désert de combat</option>
+                    <option value="robot">Usine Robotique</option>
+                    <option value="poison">Nuage Toxique</option>
+                </select>
+            </div>
+        </div>
+
+        <button id="btn-start" class="btn-play">JOUER</button>
+    </div>
+
+    <!-- ================= LA BOUTIQUE ================= -->
+    <div id="shop-menu" class="screen hidden">
+        <h2>BOUTIQUE & AMÉLIORATIONS</h2>
+        <div id="currency-display">Pièces : <span id="coin-count">0</span> 🪙</div>
+        
+        <div class="shop-grid">
+            <div class="shop-item">
+                <h4>Vitesse de déplacement</h4>
+                <p>Niveau: <span id="speed-lvl">1</span></p>
+                <button id="buy-speed">Améliorer (100 🪙)</button>
+            </div>
+            <div class="shop-item">
+                <h4>Dégâts d'attaque</h4>
+                <p>Niveau: <span id="dmg-lvl">1</span></p>
+                <button id="buy-dmg">Améliorer (150 🪙)</button>
+            </div>
+            <div class="shop-item">
+                <h4>Débloquer Colt</h4>
+                <p>Statut: <span id="colt-status">Verrouillé</span></p>
+                <button id="unlock-colt">Acheter (500 🪙)</button>
+            </div>
+        </div>
+        <button id="btn-close-shop">Retour</button>
+    </div>
+
+    <!-- ================= ÉCRAN DE JEU (CANVAS) ================= -->
+    <div id="game-container" class="screen hidden">
+        <!-- Zone de dessin du jeu -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Interface ATH (Score, Vie) -->
+        <div id="hud">
+            <div>Vie : <span id="hud-hp">100</span> ❤️</div>
+            <div>Score : <span id="hud-score">0</span> 🏆</div>
+        </div>
+
+        <!-- Bouton Pause -->
+        <button id="btn-pause-trigger">⚙️</button>
+
+        <!-- Commandes Mobiles Spécifiques -->
+        <div id="mobile-controls">
+            <div id="joystick-zone">
+                <button id="btn-m-left" class="m-btn">◀</button>
+                <button id="btn-m-right" class="m-btn">▶</button>
+            </div>
+            <div id="action-zone">
+                <button id="btn-m-jump" class="m-btn action">SAUTER</button>
+                <button id="btn-m-shoot" class="m-btn action fire">TIRER</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MENU PAUSE & CONFIG TOUCHES ================= -->
+    <div id="pause-menu" class="screen overlay hidden">
+        <h2>PAUSE</h2>
+        <button id="btn-resume">Reprendre</button>
+        
+        <div class="settings-box">
+            <h3>Configuration des touches</h3>
+            <p>Clique sur un bouton pour changer sa place (Simulé pour mobile) :</p>
+            <button id="btn-config-layout">Inverser Gauche / Droite les boutons</button>
+        </div>
+
+        <button id="btn-quit" class="btn-danger">Quitter la partie</button>
+    </div>
+
+    <!-- Insertion du script logique -->
+    <script src="game.js"></script>
+</body>
+</html>
