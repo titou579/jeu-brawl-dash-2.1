@@ -1,0 +1,15 @@
+{
+  "name": "jeu-brawl-dash-2.1",
+  "version": "1.0.0",
+  "description": "Hybride 2D de Geometry Dash et Brawl Stars",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
