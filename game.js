@@ -6,9 +6,9 @@ const images = {
     pic: new Image()
 };
 images.shelly.src = 'shelly.png.png'; 
-images.edgard.src = 'edgard.png';
-images.melody.src = 'melody.png';
-images.pic.src = 'pic.png';
+images.edgard.src = 'edgard.png.png';
+images.melody.src = 'melody.png.png';
+images.pic.src = 'pic.png.png';
 
 // ================= STATS ET CONFIGURATION =================
 const playerStats = {
@@ -19,9 +19,9 @@ const playerStats = {
 };
 
 const brawlerConfig = {
-    Shelly: { speed: 4.5, hp: 100, damage: 20, img: images.shelly, range: 450 },
-    Edgar: { speed: 6.5, hp: 90, damage: 25, img: images.edgard, range: 250 },
-    Melodie: { speed: 5.5, hp: 110, damage: 18, img: images.melody, range: 500 }
+    Shelly: { speed: 5, hp: 100, damage: 20, img: images.shelly, range: 450 },
+    Edgar: { speed: 7, hp: 90, damage: 25, img: images.edgard, range: 250 },
+    Melodie: { speed: 6, hp: 110, damage: 18, img: images.melody, range: 500 }
 };
 
 let gameInterval;
@@ -35,19 +35,17 @@ let obstacles = [];
 let bullets = [];
 let spawnTimer = 0;
 let shootCooldown = 0;
-let spawnProtectionTimer = 0; // Sécurité anti-dépop au démarrage
+let spawnProtectionTimer = 0; 
 
-let gameScale = 1;
-const BASE_HEIGHT = 600; 
-
+// Dimensions fixes du brawler en pixels réels (assez grandes pour être bien visibles)
 const player = {
     x: 150,
-    y: 50, // MODIFIÉ : On le fait apparaître bien haut dans le ciel pour éviter le bug du sol
-    width: 65,  
-    height: 80,
+    y: 100,
+    width: 70,  
+    height: 90,
     vy: 0,
     gravity: 0.6,
-    jumpForce: -13,
+    jumpForce: -14,
     isGrounded: false,
     direction: 1
 };
@@ -57,15 +55,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 function resizeCanvas() {
-    // Force l'affichage CSS pour éviter que le navigateur n'écrase ou ne compresse l'image
-    canvas.style.width = '100vw';
-    canvas.style.height = '100vh';
-    
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    
-    // Calcul précis du zoom pour garder les proportions du brawler intactes
-    gameScale = canvas.height / BASE_HEIGHT;
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -129,15 +120,15 @@ bindMobileBtn('btn-m-shoot', 'KeyF');
 
 // ================= MOTEUR PHYSIQUE =================
 function startGame() {
-    resizeCanvas(); // Relance le calcul propre des tailles au départ
+    resizeCanvas(); 
     isPlaying = true; 
     isPaused = false; 
     score = 0;
     currentHp = brawlerConfig[playerStats.currentBrawler].hp;
     
-    // Position de départ sécurisée en l'air
+    // Position de départ sécurisée au-dessus du sol réel
     player.x = 150; 
-    player.y = 50; 
+    player.y = canvas.height - 300; 
     player.vy = 0; 
     player.isGrounded = false;
     player.direction = 1;
@@ -147,7 +138,7 @@ function startGame() {
     spawnTimer = 0; 
     shootCooldown = 0; 
     camera.x = 0;
-    spawnProtectionTimer = 60; // 60 frames (1 seconde) d'invulnérabilité totale au spawn
+    spawnProtectionTimer = 50; // Courte immunité visuelle
     
     showScreen('game-container');
     gameInterval = requestAnimationFrame(gameLoop);
@@ -167,16 +158,21 @@ function updatePhysics() {
 
     if (spawnProtectionTimer > 0) spawnProtectionTimer--;
 
+    // Mouvements
     if (keys['ArrowLeft'] || keys['KeyA']) { player.x -= finalSpeed; player.direction = -1; }
     if (keys['ArrowRight'] || keys['KeyD']) { player.x += finalSpeed; player.direction = 1; }
 
+    // Saut
     if ((keys['Space'] || keys['KeyW'] || keys['ArrowUp']) && player.isGrounded) {
         player.vy = player.jumpForce; player.isGrounded = false;
     }
 
-    player.vy += player.gravity; player.y += player.vy;
+    // Application Gravité brute
+    player.vy += player.gravity; 
+    player.y += player.vy;
     
-    const groundLevel = BASE_HEIGHT - 120;
+    // Sol calé sur le bas réel de l'écran de l'appareil
+    const groundLevel = canvas.height - 150;
     if (player.y + player.height >= groundLevel) {
         player.y = groundLevel - player.height;
         player.vy = 0;
@@ -184,23 +180,24 @@ function updatePhysics() {
     }
     if (player.x < 0) player.x = 0;
 
+    // Score
     if (Math.floor(player.x / 15) > score) { score = Math.floor(player.x / 15); }
 
-    const virtualWidth = canvas.width / gameScale;
-    camera.x = player.x - virtualWidth / 2 + player.width / 2;
+    // Caméra centrée réelle
+    camera.x = player.x - canvas.width / 2 + player.width / 2;
     if (camera.x < 0) camera.x = 0;
 
-    // Tir
+    // Logic de Tir
     if (shootCooldown > 0) shootCooldown--;
     if (keys['KeyF'] && shootCooldown === 0) {
         const dmgMultiplier = 1 + (playerStats.upgrades.dmg - 1) * 0.2;
-        let bulletSpawnX = player.direction === 1 ? player.x + player.width + 15 : player.x - 25;
+        let bulletSpawnX = player.direction === 1 ? player.x + player.width + 10 : player.x - 20;
         
         bullets.push({
             x: bulletSpawnX,
-            y: player.y + player.height / 2 - 2,
-            width: 20, height: 10,
-            speed: 15 * player.direction,
+            y: player.y + player.height / 2,
+            width: 20, height: 8,
+            speed: 16 * player.direction,
             damage: currentConfig.damage * dmgMultiplier,
             startX: player.x,
             range: currentConfig.range
@@ -210,25 +207,25 @@ function updatePhysics() {
 
     for (let i = bullets.length - 1; i >= 0; i--) {
         let b = bullets[i]; b.x += b.speed;
-        if (Math.abs(b.x - b.startX) > b.range || b.x < camera.x || b.x > camera.x + virtualWidth) { bullets.splice(i, 1); }
+        if (Math.abs(b.x - b.startX) > b.range || b.x < camera.x || b.x > camera.x + canvas.width) { bullets.splice(i, 1); }
     }
 
-    // Obstacles
+    // Génération obstacles (adaptés aux tailles réelles)
     spawnTimer++;
-    if (spawnTimer > 90) {
+    if (spawnTimer > 85) {
         let type = Math.random() > 0.4 ? 'spike' : 'box';
         obstacles.push({
-            x: player.x + virtualWidth,
-            y: type === 'spike' ? groundLevel - 55 : groundLevel - 75,
-            width: type === 'spike' ? 55 : 65,
-            height: type === 'spike' ? 55 : 75,
+            x: player.x + canvas.width,
+            y: type === 'spike' ? groundLevel - 60 : groundLevel - 80,
+            width: type === 'spike' ? 60 : 70,
+            height: type === 'spike' ? 60 : 80,
             type: type,
             hp: type === 'box' ? 40 : 1
         });
         spawnTimer = 0;
     }
 
-    // Balles VS Obstacles
+    // Balles VS Caisses
     for (let i = bullets.length - 1; i >= 0; i--) {
         for (let j = obstacles.length - 1; j >= 0; j--) {
             let b = bullets[i]; let o = obstacles[j];
@@ -240,7 +237,7 @@ function updatePhysics() {
         }
     }
 
-    // Joueur VS Obstacles (Bloqué si la protection est active)
+    // Collisions mortelles (Uniquement hors protection)
     if (spawnProtectionTimer === 0) {
         for (let i = obstacles.length - 1; i >= 0; i--) {
             let obs = obstacles[i];
@@ -250,7 +247,7 @@ function updatePhysics() {
                 player.y < obs.y + obs.height && 
                 player.y + player.height > obs.y) {
                 
-                currentHp -= obs.type === 'spike' ? 30 : 15;
+                currentHp -= obs.type === 'spike' ? 35 : 20;
                 obstacles.splice(i, 1);
                 
                 if (currentHp <= 0) {
@@ -268,34 +265,30 @@ function updatePhysics() {
     document.getElementById('hud-hp').innerText = currentHp;
 }
 
-// ================= RENDU VISUEL =================
+// ================= RENDU VISUEL SANS CANVAS-SCALE =================
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    ctx.save();
-    ctx.scale(gameScale, gameScale);
-    
-    const groundLevel = BASE_HEIGHT - 120;
-    const virtualWidth = canvas.width / gameScale;
+    const groundLevel = canvas.height - 150;
 
-    // Sol
-    ctx.fillStyle = '#223147'; ctx.fillRect(0, groundLevel, virtualWidth, 120);
+    // Dessin du Sol
+    ctx.fillStyle = '#223147'; ctx.fillRect(0, groundLevel, canvas.width, 150);
     ctx.fillStyle = '#1b2636';
-    for (let i = 0; i < virtualWidth + 200; i += 100) { ctx.fillRect(i - (camera.x % 100), groundLevel, 8, 120); }
+    for (let i = 0; i < canvas.width + 200; i += 120) { ctx.fillRect(i - (camera.x % 120), groundLevel, 8, 150); }
 
-    // Balles
+    // Dessin des Balles
     ctx.fillStyle = '#00FFFF';
     bullets.forEach(b => ctx.fillRect(b.x - camera.x, b.y, b.width, b.height));
 
-    // Obstacles
+    // Dessin des Obstacles (Tailles réelles)
     obstacles.forEach(obs => {
         if (obs.type === 'spike') {
             ctx.drawImage(images.pic, obs.x - camera.x, obs.y, obs.width, obs.height);
         } else {
             ctx.fillStyle = '#cd853f'; ctx.fillRect(obs.x - camera.x, obs.y, obs.width, obs.height);
             ctx.strokeStyle = '#5c3a21'; ctx.lineWidth = 4; ctx.strokeRect(obs.x - camera.x, obs.y, obs.width, obs.height);
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial';
-            ctx.fillText(Math.max(0, obs.hp) + ' HP', obs.x - camera.x + 10, obs.y - 8);
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 13px Arial';
+            ctx.fillText(Math.max(0, obs.hp) + ' HP', obs.x - camera.x + 12, obs.y - 10);
         }
     });
 
@@ -303,9 +296,9 @@ function drawGame() {
     const currentBrawlerImg = brawlerConfig[playerStats.currentBrawler].img;
     
     ctx.save();
-    // Petit effet de clignotement si le bouclier de départ est actif
+    // Clignotement léger au spawn
     if (spawnProtectionTimer > 0 && Math.floor(spawnProtectionTimer / 4) % 2 === 0) {
-        ctx.globalAlpha = 0.4;
+        ctx.globalAlpha = 0.5;
     }
     
     if (player.direction === -1) {
@@ -316,6 +309,4 @@ function drawGame() {
         ctx.drawImage(currentBrawlerImg, player.x - camera.x, player.y, player.width, player.height);
     }
     ctx.restore();
-
-    ctx.restore(); 
 }
