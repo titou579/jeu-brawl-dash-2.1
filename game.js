@@ -5,7 +5,6 @@ const images = {
     melody: new Image(),
     pic: new Image()
 };
-// Prise en compte de ta petite correction pour le double .png !
 images.shelly.src = 'shelly.png.png'; 
 images.edgard.src = 'edgard.png';
 images.melody.src = 'melody.png';
@@ -36,17 +35,16 @@ let obstacles = [];
 let bullets = [];
 let spawnTimer = 0;
 let shootCooldown = 0;
+let spawnProtectionTimer = 0; // Sécurité anti-dépop au démarrage
 
-// Variables pour gérer le zoom universel
 let gameScale = 1;
-const BASE_HEIGHT = 600; // Hauteur virtuelle de référence (style console rétro)
+const BASE_HEIGHT = 600; 
 
-// Dimensions de base augmentées pour les visuels
 const player = {
-    x: 100,
-    y: 200,
-    width: 60,  
-    height: 75,
+    x: 150,
+    y: 50, // MODIFIÉ : On le fait apparaître bien haut dans le ciel pour éviter le bug du sol
+    width: 65,  
+    height: 80,
     vy: 0,
     gravity: 0.6,
     jumpForce: -13,
@@ -59,9 +57,14 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 function resizeCanvas() {
+    // Force l'affichage CSS pour éviter que le navigateur n'écrase ou ne compresse l'image
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // On calcule le zoom nécessaire pour que le jeu ne soit plus minuscule
+    
+    // Calcul précis du zoom pour garder les proportions du brawler intactes
     gameScale = canvas.height / BASE_HEIGHT;
 }
 window.addEventListener('resize', resizeCanvas);
@@ -95,7 +98,6 @@ document.getElementById('current-brawler-display').addEventListener('click', () 
     else playerStats.currentBrawler = 'Shelly';
     document.getElementById('current-brawler-display').innerText = playerStats.currentBrawler + " (Clique pour changer)";
 });
-document.getElementById('current-brawler-display').innerText = "Shelly (Clique pour changer)";
 
 function updateShopUI() {
     document.getElementById('coin-count').innerText = playerStats.coins;
@@ -114,7 +116,6 @@ document.getElementById('buy-dmg').addEventListener('click', () => {
 // ================= ENTRÉES CLAVIER & TACTILE =================
 window.addEventListener('keydown', (e) => keys[e.code] = true);
 window.addEventListener('keyup', (e) => keys[e.code] = false);
-window.addEventListener('keydown', (e) => { if (e.code === 'Escape' && isPlaying) togglePause(); });
 
 function bindMobileBtn(id, keyCode) {
     const btn = document.getElementById(id);
@@ -128,10 +129,26 @@ bindMobileBtn('btn-m-shoot', 'KeyF');
 
 // ================= MOTEUR PHYSIQUE =================
 function startGame() {
-    isPlaying = true; isPaused = false; score = 0;
+    resizeCanvas(); // Relance le calcul propre des tailles au départ
+    isPlaying = true; 
+    isPaused = false; 
+    score = 0;
     currentHp = brawlerConfig[playerStats.currentBrawler].hp;
-    player.x = 100; player.y = 100; player.vy = 0; player.direction = 1;
-    obstacles = []; bullets = []; spawnTimer = 0; shootCooldown = 0; camera.x = 0;
+    
+    // Position de départ sécurisée en l'air
+    player.x = 150; 
+    player.y = 50; 
+    player.vy = 0; 
+    player.isGrounded = false;
+    player.direction = 1;
+    
+    obstacles = []; 
+    bullets = []; 
+    spawnTimer = 0; 
+    shootCooldown = 0; 
+    camera.x = 0;
+    spawnProtectionTimer = 60; // 60 frames (1 seconde) d'invulnérabilité totale au spawn
+    
     showScreen('game-container');
     gameInterval = requestAnimationFrame(gameLoop);
 }
@@ -148,18 +165,17 @@ function updatePhysics() {
     const currentConfig = brawlerConfig[playerStats.currentBrawler];
     const finalSpeed = currentConfig.speed * (1 + (playerStats.upgrades.speed - 1) * 0.12);
 
-    // Contrôles de déplacement
+    if (spawnProtectionTimer > 0) spawnProtectionTimer--;
+
     if (keys['ArrowLeft'] || keys['KeyA']) { player.x -= finalSpeed; player.direction = -1; }
     if (keys['ArrowRight'] || keys['KeyD']) { player.x += finalSpeed; player.direction = 1; }
 
-    // Saut
     if ((keys['Space'] || keys['KeyW'] || keys['ArrowUp']) && player.isGrounded) {
         player.vy = player.jumpForce; player.isGrounded = false;
     }
 
     player.vy += player.gravity; player.y += player.vy;
     
-    // Hauteur du sol calée sur notre hauteur virtuelle fixe
     const groundLevel = BASE_HEIGHT - 120;
     if (player.y + player.height >= groundLevel) {
         player.y = groundLevel - player.height;
@@ -170,28 +186,26 @@ function updatePhysics() {
 
     if (Math.floor(player.x / 15) > score) { score = Math.floor(player.x / 15); }
 
-    // Caméra centrée basée sur la largeur de l'écran convertie à l'échelle zoomée
     const virtualWidth = canvas.width / gameScale;
     camera.x = player.x - virtualWidth / 2 + player.width / 2;
     if (camera.x < 0) camera.x = 0;
 
-    // --- TIR (CORRIGÉ POUR APPARAÎTRE EN DEHORS DE LA HITBOX) ---
+    // Tir
     if (shootCooldown > 0) shootCooldown--;
     if (keys['KeyF'] && shootCooldown === 0) {
         const dmgMultiplier = 1 + (playerStats.upgrades.dmg - 1) * 0.2;
-        // On décale le point de départ de la balle pour qu'elle sorte bien du pistolet sans toucher le brawler
-        let bulletSpawnX = player.direction === 1 ? player.x + player.width + 10 : player.x - 20;
+        let bulletSpawnX = player.direction === 1 ? player.x + player.width + 15 : player.x - 25;
         
         bullets.push({
             x: bulletSpawnX,
             y: player.y + player.height / 2 - 2,
-            width: 16, height: 8,
-            speed: 14 * player.direction,
+            width: 20, height: 10,
+            speed: 15 * player.direction,
             damage: currentConfig.damage * dmgMultiplier,
             startX: player.x,
             range: currentConfig.range
         });
-        shootCooldown = 20;
+        shootCooldown = 18;
     }
 
     for (let i = bullets.length - 1; i >= 0; i--) {
@@ -199,22 +213,22 @@ function updatePhysics() {
         if (Math.abs(b.x - b.startX) > b.range || b.x < camera.x || b.x > camera.x + virtualWidth) { bullets.splice(i, 1); }
     }
 
-    // --- POP DES ENNEMIS ET OBSTACLES ---
+    // Obstacles
     spawnTimer++;
-    if (spawnTimer > 85) {
+    if (spawnTimer > 90) {
         let type = Math.random() > 0.4 ? 'spike' : 'box';
         obstacles.push({
             x: player.x + virtualWidth,
-            y: type === 'spike' ? groundLevel - 50 : groundLevel - 70,
-            width: type === 'spike' ? 50 : 60,
-            height: type === 'spike' ? 50 : 70,
+            y: type === 'spike' ? groundLevel - 55 : groundLevel - 75,
+            width: type === 'spike' ? 55 : 65,
+            height: type === 'spike' ? 55 : 75,
             type: type,
             hp: type === 'box' ? 40 : 1
         });
         spawnTimer = 0;
     }
 
-    // Balles contre Obstacles
+    // Balles VS Obstacles
     for (let i = bullets.length - 1; i >= 0; i--) {
         for (let j = obstacles.length - 1; j >= 0; j--) {
             let b = bullets[i]; let o = obstacles[j];
@@ -226,24 +240,26 @@ function updatePhysics() {
         }
     }
 
-    // Joueur contre Obstacles (Hitbox renforcée à 100% de fiabilité)
-    for (let i = obstacles.length - 1; i >= 0; i--) {
-        let obs = obstacles[i];
-        
-        if (player.x < obs.x + obs.width && 
-            player.x + player.width > obs.x && 
-            player.y < obs.y + obs.height && 
-            player.y + player.height > obs.y) {
+    // Joueur VS Obstacles (Bloqué si la protection est active)
+    if (spawnProtectionTimer === 0) {
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
             
-            currentHp -= obs.type === 'spike' ? 30 : 15;
-            obstacles.splice(i, 1);
-            
-            if (currentHp <= 0) {
-                currentHp = 0;
-                let reward = Math.floor(score / 3);
-                playerStats.coins += reward;
-                alert(`Game Over ! Score : ${score}. Tu as récolté ${reward} 🪙`);
-                quitGame();
+            if (player.x < obs.x + obs.width && 
+                player.x + player.width > obs.x && 
+                player.y < obs.y + obs.height && 
+                player.y + player.height > obs.y) {
+                
+                currentHp -= obs.type === 'spike' ? 30 : 15;
+                obstacles.splice(i, 1);
+                
+                if (currentHp <= 0) {
+                    currentHp = 0;
+                    let reward = Math.floor(score / 3);
+                    playerStats.coins += reward;
+                    alert(`Game Over ! Score : ${score}. Tu as récolté ${reward} 🪙`);
+                    quitGame();
+                }
             }
         }
     }
@@ -252,18 +268,17 @@ function updatePhysics() {
     document.getElementById('hud-hp').innerText = currentHp;
 }
 
-// ================= SYSTÈME DE RENDU (AFFICHAGE) =================
+// ================= RENDU VISUEL =================
 function drawGame() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     ctx.save();
-    // LE TRUC MAGIQUE : On applique le zoom global sur tout ce qu'on dessine en jeu
     ctx.scale(gameScale, gameScale);
     
     const groundLevel = BASE_HEIGHT - 120;
     const virtualWidth = canvas.width / gameScale;
 
-    // Décor Sol
+    // Sol
     ctx.fillStyle = '#223147'; ctx.fillRect(0, groundLevel, virtualWidth, 120);
     ctx.fillStyle = '#1b2636';
     for (let i = 0; i < virtualWidth + 200; i += 100) { ctx.fillRect(i - (camera.x % 100), groundLevel, 8, 120); }
@@ -272,7 +287,7 @@ function drawGame() {
     ctx.fillStyle = '#00FFFF';
     bullets.forEach(b => ctx.fillRect(b.x - camera.x, b.y, b.width, b.height));
 
-    // Obstacles (Images zoomées automatiquement)
+    // Obstacles
     obstacles.forEach(obs => {
         if (obs.type === 'spike') {
             ctx.drawImage(images.pic, obs.x - camera.x, obs.y, obs.width, obs.height);
@@ -288,6 +303,11 @@ function drawGame() {
     const currentBrawlerImg = brawlerConfig[playerStats.currentBrawler].img;
     
     ctx.save();
+    // Petit effet de clignotement si le bouclier de départ est actif
+    if (spawnProtectionTimer > 0 && Math.floor(spawnProtectionTimer / 4) % 2 === 0) {
+        ctx.globalAlpha = 0.4;
+    }
+    
     if (player.direction === -1) {
         ctx.translate(player.x - camera.x + player.width, player.y);
         ctx.scale(-1, 1);
@@ -297,13 +317,5 @@ function drawGame() {
     }
     ctx.restore();
 
-    // Arme visuelle
-    ctx.fillStyle = '#111';
-    if (player.direction === 1) {
-        ctx.fillRect(player.x - camera.x + player.width - 5, player.y + player.height / 2 + 5, 20, 10);
-    } else {
-        ctx.fillRect(player.x - camera.x - 15, player.y + player.height / 2 + 5, 20, 10);
-    }
-
-    ctx.restore(); // On réinitialise l'échelle pour ne pas casser le reste
+    ctx.restore(); 
 }
